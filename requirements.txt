@@ -1,0 +1,18 @@
+# Core LLM / RAG stack
+langchain
+langchain-community
+chromadb
+sentence-transformers
+
+# ML / data
+scikit-learn
+pandas
+numpy
+joblib
+
+# API
+fastapi
+uvicorn
+
+# Config
+python-dotenv
