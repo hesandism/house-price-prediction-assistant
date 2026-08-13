@@ -9,6 +9,7 @@ scikit-learn
 pandas
 numpy
 joblib
+matplotlib
 
 # API
 fastapi
