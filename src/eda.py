@@ -14,15 +14,16 @@ import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DATA_PATH = PROJECT_ROOT / "data" / "housing.csv"
+# DATA_PATH = PROJECT_ROOT / "data" / "housing.csv"
+DATA_PATH = PROJECT_ROOT / "data" / "house_prices_srilanka.csv"
 OUTPUT_DIR = PROJECT_ROOT / "notebooks" / "eda_outputs"
 REQUIRED_COLUMNS = [
-    "area_sqft",
+    "perch",
     "bedrooms",
     "bathrooms",
-    "location",
-    "age_years",
-    "price",
+    "district",
+    "year_built",
+    "price_lkr",
 ]
 
 
@@ -103,7 +104,7 @@ def print_dataset_overview(df: pd.DataFrame) -> None:
 def compute_price_correlations(df: pd.DataFrame) -> pd.Series:
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     corr_df = df[numeric_cols].corr(numeric_only=True)
-    corr_with_price = corr_df["price"].drop("price").sort_values(ascending=False)
+    corr_with_price = corr_df["price_lkr"].drop("price_lkr").sort_values(ascending=False)
     print("\nCorrelation with price:")
     print(corr_with_price)
     return corr_with_price
@@ -111,7 +112,7 @@ def compute_price_correlations(df: pd.DataFrame) -> pd.Series:
 
 def save_price_distribution_plot(df: pd.DataFrame, output_path: Path) -> None:
     plt.figure(figsize=(8, 5))
-    plt.hist(df["price"], bins=30, color="#4c72b0", edgecolor="black")
+    plt.hist(df["price_lkr"], bins=30, color="#77c012", edgecolor="black")
     plt.title("Housing Price Distribution")
     plt.xlabel("Price")
     plt.ylabel("Frequency")
@@ -122,9 +123,9 @@ def save_price_distribution_plot(df: pd.DataFrame, output_path: Path) -> None:
 
 def save_price_vs_area_plot(df: pd.DataFrame, output_path: Path) -> None:
     plt.figure(figsize=(8, 6))
-    plt.scatter(df["area_sqft"], df["price"], alpha=0.7, s=30, color="#55a868")
-    plt.title("Price vs Area")
-    plt.xlabel("Area (sqft)")
+    plt.scatter(df["kitchen_area_sqft"], df["price_lkr"], alpha=0.7, s=30, color="#920c75")
+    plt.title("Price vs Kitchen Area")
+    plt.xlabel("Kitchen Area (sqft)")
     plt.ylabel("Price")
     plt.tight_layout()
     plt.savefig(output_path, dpi=200)

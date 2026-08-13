@@ -30,12 +30,13 @@ ENV/
 htmlcov/
 .ipynb_checkpoints/
 
+
 # --- Project artifacts ---
 chroma_db/
 models/*.joblib
 models/*.pkl
 notebooks/eda_outputs/
-
+docs/
 # --- Node / Next.js (frontend/) ---
 node_modules/
 .next/
