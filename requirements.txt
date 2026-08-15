@@ -3,6 +3,7 @@ langchain
 langchain-community
 chromadb
 sentence-transformers
+pypdf
 
 # ML / data
 scikit-learn
