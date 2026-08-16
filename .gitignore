@@ -37,6 +37,9 @@ models/*.joblib
 models/*.pkl
 notebooks/eda_outputs/
 docs/
+data/
+
+
 # --- Node / Next.js (frontend/) ---
 node_modules/
 .next/
