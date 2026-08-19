@@ -27,66 +27,29 @@ REQUIRED_COLUMNS = [
 ]
 
 
-def generate_synthetic_housing_data(path: Path, rows: int = 500) -> pd.DataFrame:
-    """Create a believable synthetic housing dataset if the real CSV is missing."""
-    rng = np.random.default_rng(42)
-
-    locations = ["Downtown", "Suburban", "Riverside", "Hillcrest", "Old Town"]
-    location_effects = {
-        "Downtown": 85000,
-        "Suburban": 55000,
-        "Riverside": 62000,
-        "Hillcrest": 95000,
-        "Old Town": 30000,
-    }
-
-    area_sqft = np.clip(rng.normal(2200, 500, size=rows), 800, 5000)
-    bedrooms = rng.integers(1, 6, size=rows)
-    bathrooms = rng.integers(1, 5, size=rows)
-    age_years = rng.integers(0, 60, size=rows)
-    location = rng.choice(locations, size=rows)
-
-    # A realistic formula for home price with market variation and noise.
-    base_price = (
-        180.0 * area_sqft
-        + 35000.0 * bedrooms
-        + 25000.0 * bathrooms
-        + np.array([location_effects[loc] for loc in location])
-        - 1200.0 * age_years
-        + 55000.0
-    )
-    noise = rng.normal(0, 40000, size=rows)
-    price = base_price + noise
-    price = np.maximum(price, 100000.0)
-
-    df = pd.DataFrame(
-        {
-            "area_sqft": area_sqft.round(1),
-            "bedrooms": bedrooms,
-            "bathrooms": bathrooms,
-            "location": location,
-            "age_years": age_years,
-            "price": np.round(price, 2),
-        }
-    )
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False)
-    return df
-
-
 def ensure_dataset(path: Path) -> pd.DataFrame:
+    """Load the dataset, or fail with the schema mismatch spelled out.
+
+    An earlier version fell back to generating a synthetic dataset here. That
+    was removed: the generator emitted an older schema (area_sqft / location /
+    price) that does not satisfy REQUIRED_COLUMNS, so every function below it
+    still failed - and because it wrote to `path`, the fallback would overwrite
+    the real 20k-row CSV with 500 rows of synthetic data.
+    """
     if not path.exists():
-        print(f"Dataset not found at {path}. Generating synthetic data...")
-        return generate_synthetic_housing_data(path)
+        raise FileNotFoundError(
+            f"Dataset not found at {path}.\n"
+            f"Expected a CSV with at least these columns: "
+            f"{', '.join(REQUIRED_COLUMNS)}."
+        )
 
     df = pd.read_csv(path)
-    if not set(REQUIRED_COLUMNS).issubset(df.columns):
-        print(
-            f"Dataset at {path} does not match the required schema. "
-            "Generating a synthetic housing dataset instead."
+    missing = [column for column in REQUIRED_COLUMNS if column not in df.columns]
+    if missing:
+        raise ValueError(
+            f"Dataset at {path} is missing required columns: {missing}.\n"
+            f"Found: {list(df.columns)}"
         )
-        return generate_synthetic_housing_data(path)
     return df
 
 
@@ -122,11 +85,15 @@ def save_price_distribution_plot(df: pd.DataFrame, output_path: Path) -> None:
 
 
 def save_price_vs_area_plot(df: pd.DataFrame, output_path: Path) -> None:
+    # 'perch' is the land extent, and the only real size measure in this
+    # dataset - it is also how Sri Lankan listings quote size. This plot used
+    # kitchen_area_sqft, which is the kitchen alone (35-250 sqft) and says
+    # nothing about how big the property is.
     plt.figure(figsize=(8, 6))
-    plt.scatter(df["kitchen_area_sqft"], df["price_lkr"], alpha=0.7, s=30, color="#920c75")
-    plt.title("Price vs Kitchen Area")
-    plt.xlabel("Kitchen Area (sqft)")
-    plt.ylabel("Price")
+    plt.scatter(df["perch"], df["price_lkr"], alpha=0.4, s=12, color="#920c75")
+    plt.title("Price vs Land Extent")
+    plt.xlabel("Land extent (perches)")
+    plt.ylabel("Price (LKR)")
     plt.tight_layout()
     plt.savefig(output_path, dpi=200)
     plt.close()
