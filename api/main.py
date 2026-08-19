@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from agent import ask  # noqa: E402  (needs the sys.path line above)
+from agent import MODEL, MODEL_SOURCE, ask  # noqa: E402  (needs sys.path above)
 
 
 # The Next.js/CRA dev server is reached under either spelling depending on how
@@ -52,8 +52,13 @@ class AskResponse(BaseModel):
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    """Liveness probe. Does not check that the LLM provider is reachable."""
-    return {"status": "ok"}
+    """Liveness probe. Does not check that the LLM provider is reachable.
+
+    Reports the resolved model and where it came from. A stale HOUSE_AGENT_MODEL
+    exported in the shell outranks .env and is otherwise invisible until the
+    provider rejects it, so this is the fastest way to see what is really loaded.
+    """
+    return {"status": "ok", "model": MODEL, "model_source": MODEL_SOURCE}
 
 
 @app.post("/ask", response_model=AskResponse)

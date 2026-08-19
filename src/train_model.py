@@ -22,8 +22,21 @@ MODEL_PATH = MODEL_DIR / "price_model.joblib"
 COLUMNS_PATH = MODEL_DIR / "model_columns.joblib"
 
 TARGET_COLUMN = "price_lkr"
-CATEGORICAL_COLUMNS = ["district","area","parking_spots","has_garden","has_ac",  "water_supply", "electricity",	"floors",	"year_built"   ]
-NUMERIC_COLUMNS = ["kitchen_area_sqft", "bedrooms", "bathrooms", "perch", "price_lkr"]
+CATEGORICAL_COLUMNS = [
+    "district",
+    "area",
+    "parking_spots",
+    "has_garden",
+    "has_ac",
+    "water_supply",
+    "electricity",
+    "floors",
+    "year_built",
+]
+# price_lkr is the TARGET and must never appear here. Including it leaks the
+# answer into the features, and the model degenerates to returning its own
+# input (R2 = 1.0, zero error) while learning nothing about the other columns.
+NUMERIC_COLUMNS = ["kitchen_area_sqft", "bedrooms", "bathrooms", "perch"]
 
 RANDOM_STATE = 42
 TEST_SIZE = 0.2

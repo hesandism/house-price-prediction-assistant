@@ -39,8 +39,16 @@ TARGET_COLUMN = "price_lkr"
 # every other column is filled from the dataset's central tendency.
 LOCATION_COLUMN = "district"
 SUBAREA_COLUMN = "area"
-AREA_SQFT_COLUMN = "kitchen_area_sqft"
 YEAR_BUILT_COLUMN = "year_built"
+
+# The dataset has no total floor-area column. Its only meaningful size measure
+# is 'perch', the land extent -- which is also how Sri Lankan listings quote
+# size -- so area_sqft is converted into perches. Mapping it to
+# 'kitchen_area_sqft' instead would be wrong: that column is the kitchen alone
+# (35-250 sqft), so any real house area sits far outside the training range and
+# the tree model saturates, returning the same price for 900 and 1800 sqft.
+LAND_AREA_COLUMN = "perch"
+SQFT_PER_PERCH = 272.25
 
 
 @lru_cache(maxsize=1)
@@ -129,7 +137,8 @@ def predict_price(
     prices moved, or what reports say - use retrieve_docs for those.
 
     Args:
-        area_sqft: Built floor area in square feet, e.g. 1200.
+        area_sqft: Land/plot area in square feet, e.g. 2700 (about 10 perches).
+            If the user quotes perches, multiply by 272 to get square feet.
         bedrooms: Number of bedrooms, e.g. 3.
         bathrooms: Number of bathrooms, e.g. 2.
         location: Sri Lankan district name, e.g. "Colombo", "Kandy", "Galle".
@@ -172,8 +181,21 @@ def predict_price(
             "and age_years cannot be negative."
         )
 
+    perches = float(area_sqft) / SQFT_PER_PERCH
+    low, high = df[LAND_AREA_COLUMN].min(), df[LAND_AREA_COLUMN].max()
+    caveat = ""
+    if not low <= perches <= high:
+        # Tree models cannot extrapolate; outside the training range every
+        # input collapses to the same boundary leaf. Say so rather than
+        # presenting a saturated number as a real estimate.
+        caveat = (
+            f"\nNote: {area_sqft:,.0f} sqft is outside the range this model was "
+            f"trained on ({low * SQFT_PER_PERCH:,.0f}-{high * SQFT_PER_PERCH:,.0f} "
+            f"sqft), so treat this figure as unreliable."
+        )
+
     row = dict(defaults)
-    row[AREA_SQFT_COLUMN] = float(area_sqft)
+    row[LAND_AREA_COLUMN] = perches
     row["bedrooms"] = int(bedrooms)
     row["bathrooms"] = int(bathrooms)
     row[LOCATION_COLUMN] = district
@@ -199,8 +221,9 @@ def predict_price(
 
     return (
         f"Estimated price: LKR {price:,.0f}\n"
-        f"Based on: {area_sqft:,.0f} sqft, {bedrooms} bed, {bathrooms} bath, "
-        f"{district} district, {age_years} years old."
+        f"Based on: {area_sqft:,.0f} sqft land ({perches:.1f} perches), "
+        f"{bedrooms} bed, {bathrooms} bath, {district} district, "
+        f"{age_years} years old.{caveat}"
     )
 
 
