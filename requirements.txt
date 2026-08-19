@@ -1,6 +1,7 @@
 # Core LLM / RAG stack
 langchain
-langchain-community
+langchain-groq          # provider for HOUSE_AGENT_MODEL's default "groq:" prefix
+langchain-huggingface   # HuggingFaceEmbeddings; the langchain-community copy is deprecated
 chromadb
 sentence-transformers
 pypdf
