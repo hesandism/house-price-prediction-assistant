@@ -17,12 +17,32 @@ if __package__ in (None, ""):  # allow `python src/agent.py`
 from tools import TOOLS
 
 
+# Read this BEFORE load_dotenv(), which does not overwrite variables that are
+# already set: a HOUSE_AGENT_MODEL exported in the shell silently outranks the
+# one in .env. That precedence is conventional, but it is invisible when it
+# bites - you edit .env, nothing changes, and the mismatch only surfaces much
+# later as a 404 from the provider. Capturing it here lets MODEL_SOURCE below
+# name where the value actually came from.
+_SHELL_MODEL = os.environ.get("HOUSE_AGENT_MODEL")
+
 load_dotenv()
 
-# Override with e.g. HOUSE_AGENT_MODEL="openai:gpt-4o" after installing that
-# provider's LangChain package.
-DEFAULT_MODEL = "anthropic:claude-opus-5"
+# Groq is the provider this project ships with (langchain-groq in
+# requirements.txt, GROQ_API_KEY in .env), so the default has to name a model
+# Groq currently serves and that supports tool calling. Groq retires model IDs
+# without notice - a decommissioned one fails at invoke time with a 404
+# "model_not_found", not at startup. Check https://console.groq.com/docs/models
+# if that happens. Override with e.g. HOUSE_AGENT_MODEL="openai:gpt-4o" after
+# installing that provider's LangChain package.
+DEFAULT_MODEL = "groq:openai/gpt-oss-120b"
 MODEL = os.getenv("HOUSE_AGENT_MODEL", DEFAULT_MODEL)
+
+if _SHELL_MODEL:
+    MODEL_SOURCE = "shell environment (this overrides .env)"
+elif os.getenv("HOUSE_AGENT_MODEL"):
+    MODEL_SOURCE = ".env"
+else:
+    MODEL_SOURCE = "built-in default"
 
 SYSTEM_PROMPT = """\
 You are the House Price Intelligence Assistant, an expert on the Sri Lankan \
@@ -54,14 +74,20 @@ def _build_agent():
     """Construct the tool-calling agent once and reuse it across questions."""
     try:
         return create_agent(model=MODEL, tools=TOOLS, system_prompt=SYSTEM_PROMPT)
-    except ImportError as exc:
-        provider = MODEL.split(":", 1)[0]
+    # ImportError: the provider package is absent. ValueError: init_chat_model
+    # rejected the string - an unrecognised provider prefix, or a bare model
+    # name with no "provider:" prefix at all. Both are configuration mistakes
+    # with the same fix, so they share one message.
+    except (ImportError, ValueError) as exc:
+        provider = MODEL.split(":", 1)[0] if ":" in MODEL else "<none>"
         raise SystemExit(
-            f"The '{provider}' LangChain provider is not installed.\n"
-            f"  pip install langchain-{provider}\n"
-            f"Then set its API key (e.g. {provider.upper()}_API_KEY) in your .env, "
-            f"or point HOUSE_AGENT_MODEL at a provider you already have.\n"
-            f"Original error: {exc}"
+            f"Could not build the agent for HOUSE_AGENT_MODEL={MODEL!r} "
+            f"(provider {provider!r}).\n"
+            f"  - Install the provider:  pip install langchain-{provider}\n"
+            f"  - Set its API key in .env (e.g. {provider.upper()}_API_KEY=...)\n"
+            f"  - Or point HOUSE_AGENT_MODEL at a provider you already have, "
+            f"in 'provider:model' form.\n"
+            f"Original error: {type(exc).__name__}: {exc}"
         ) from exc
 
 
@@ -105,7 +131,9 @@ def main() -> None:
     # that a cp1252 Windows console cannot encode. Degrade instead of crashing.
     sys.stdout.reconfigure(errors="replace")
 
-    print(f"House Price Intelligence Assistant  (model: {MODEL})")
+    print("House Price Intelligence Assistant")
+    print(f"model:  {MODEL}")
+    print(f"source: {MODEL_SOURCE}")
     print("=" * 70)
 
     if "--examples" in sys.argv:
